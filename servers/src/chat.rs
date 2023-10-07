@@ -56,9 +56,10 @@ pub struct WSRoom {
 impl WSRoom {
     pub async fn broadcast(&mut self, sender: &uuid::Uuid, msg: Message) {
         for (k, v) in self.txs.iter_mut() {
-            if *k == *sender {
-                continue;
-            }
+            println!("Ahhh {}", msg);
+            // if *k == *sender {
+            //     continue;
+            // }
             let message = WSMessage {
                 kind: WSMessageType::Message,
                 data: msg.clone().to_string(),
@@ -75,7 +76,7 @@ impl WSRoom {
 
 #[derive(Debug)]
 pub struct WSServer {
-    listener: TcpListener,
+    pub listener: TcpListener,
 }
 
 pub struct NewConnection {

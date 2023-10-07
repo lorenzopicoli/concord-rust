@@ -1,12 +1,33 @@
+use futures::{
+    stream::{SplitSink, SplitStream, StreamExt, TryStreamExt},
+    SinkExt,
+};
 use std::{collections::HashMap, sync::Arc};
-
 use tokio::sync::Mutex;
-
+use warp::{filters::ws::WebSocket, Filter};
 mod chat;
+
+async fn test(ws: WebSocket) {
+    println!("Ahhhf");
+    // Just echo all messages back...
+    let (tx, rx) = ws.split();
+    rx.forward(tx);
+}
 
 #[tokio::main]
 async fn main() {
     let server = chat::WSServer::start().await;
+
+    // let routes = warp::path("echo")
+    //     // The `ws()` filter will prepare the Websocket handshake.
+    //     .and(warp::ws())
+    //     .map(|ws: warp::ws::Ws| {
+    //         // And then our closure will be called when it completes...
+    //         ws.on_upgrade(move |websocket| test(websocket))
+    //     })
+    //     .with(warp::cors().allow_any_origin());
+    //
+    // warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
     let rooms: chat::WSRooms = Arc::new(Mutex::new(HashMap::new()));
     loop {
         let new_connection = match server.poll_new_peer().await {
