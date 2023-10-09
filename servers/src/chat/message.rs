@@ -10,30 +10,34 @@ use uuid::Uuid;
     rename_all = "camelCase"
 )]
 pub enum WSMessage {
-    NewMessage {
-        user_id: Uuid,
-        room_id: Uuid,
-        message: String,
-        server_id: Uuid,
-    },
-    Login {
-        user_id: Uuid,
-        //jwt_token
-    },
-    Logout {
-        user_id: Option<Uuid>,
-    },
+    NewMessage(NewMessage),
+    Login(LoginMessage),
+    Logout(LogoutMessage),
 }
 
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct NewMessage {
+    user_id: Uuid,
+    room_id: Uuid,
+    message: String,
+    server_id: Uuid,
+}
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct LoginMessage {
+    user_id: Uuid,
+    //jwt_token
+}
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct LogoutMessage {
+    user_id: Option<Uuid>,
+}
 impl WSMessage {
-    pub fn new(user_id: &Option<Uuid>, message: &Option<Message>) -> Self {
-        let user_id = user_id.clone();
-
+    pub fn new(message: &Option<Message>) -> Self {
         if let Some(m) = message {
             println!("New message recieved:  {}", m);
         }
         let message = match message {
-            None => return WSMessage::Logout { user_id },
+            None => return WSMessage::Logout(LogoutMessage { user_id: None }),
             Some(t) => t,
         };
 
@@ -45,7 +49,7 @@ impl WSMessage {
             Message::Binary(_) => todo!(),
             Message::Ping(_) => todo!(),
             Message::Pong(_) => todo!(),
-            Message::Close(_) => WSMessage::Logout { user_id },
+            Message::Close(_) => WSMessage::Logout(LogoutMessage { user_id: None }),
             Message::Frame(_) => todo!(),
         };
     }
