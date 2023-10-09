@@ -4,7 +4,7 @@ use tokio_tungstenite::tungstenite::Message;
 
 #[derive(Debug)]
 pub struct Peer {
-    pub user_id: uuid::Uuid,
+    pub user_id: Option<uuid::Uuid>,
     pub rx: WSReadStream,
 }
 

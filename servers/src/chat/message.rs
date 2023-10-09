@@ -17,15 +17,15 @@ pub enum WSMessage {
         server_id: Uuid,
     },
     Login {
-        user_id: Uuid,
+        jwt_token: String,
     },
     Logout {
-        user_id: Uuid,
+        user_id: Option<Uuid>,
     },
 }
 
 impl WSMessage {
-    pub fn new(user_id: &Uuid, message: &Option<Message>) -> Self {
+    pub fn new(user_id: &Option<Uuid>, message: &Option<Message>) -> Self {
         let user_id = user_id.clone();
         let message = match message {
             None => return WSMessage::Logout { user_id },
@@ -34,19 +34,6 @@ impl WSMessage {
 
         return match message {
             Message::Text(t) => {
-                let s = serde_json::to_string(&WSMessage::NewMessage {
-                    user_id: Uuid::new_v4(),
-                    room_id: Uuid::new_v4(),
-                    message: "dsfsfsd".to_string(),
-                    server_id: Uuid::new_v4(),
-                })
-                .expect("adasd");
-                println!("{}", s);
-                let s = serde_json::to_string(&WSMessage::Login {
-                    user_id: Uuid::new_v4(),
-                })
-                .expect("adasd");
-                println!("{}", s);
                 let message: WSMessage = serde_json::from_str(t).expect("Failed to parse message");
                 message
             }

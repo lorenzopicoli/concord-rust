@@ -1,16 +1,16 @@
-use std::{collections::HashMap, error::Error, sync::Arc};
+use std::{collections::HashMap, error::Error};
 
 use futures::stream::{SplitSink, SplitStream, StreamExt};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::Mutex;
+use tokio::sync::mpsc;
 use tokio_tungstenite::{accept_async, tungstenite::Message, WebSocketStream};
 use uuid::Uuid;
 
 use self::message::WSMessage;
+use self::room::Session;
 
 pub type WSWriteStream = SplitSink<WebSocketStream<TcpStream>, Message>;
 pub type WSReadStream = SplitStream<WebSocketStream<TcpStream>>;
-pub type WSRooms = Arc<Mutex<HashMap<Uuid, room::WSRoom>>>;
 
 mod message;
 mod peer;
@@ -34,8 +34,32 @@ impl WSServer {
     }
 
     pub async fn start(&self) {
-        let rooms: WSRooms = Arc::new(Mutex::new(HashMap::new()));
+        let mut user_servers: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+        let mut session = Session {
+            connected_users: HashMap::new(),
+            unidentified_users: HashMap::new(),
+        };
 
+        let mut servers_by_users: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+        // User 1
+        servers_by_users.insert(
+            Uuid::new_v4(),
+            vec![Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4()],
+        );
+
+        // User 2
+        servers_by_users.insert(
+            Uuid::new_v4(),
+            vec![Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4()],
+        );
+
+        // User 3
+        servers_by_users.insert(
+            Uuid::new_v4(),
+            vec![Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4()],
+        );
+
+        let (message_tx, mut message_rx) = mpsc::channel(32);
         loop {
             let new_connection = match self.poll_new_peer().await {
                 Ok(v) => v,
@@ -44,67 +68,88 @@ impl WSServer {
                     continue;
                 }
             };
-            let user_id = uuid::Uuid::new_v4();
-
-            // Locks the room mutex and inserts the new connection in the room or creates a room
-            // with the connection if necessary
-            // {
-            //     let mut rooms = rooms.lock().await;
-            //     match rooms.get_mut(&room_id) {
-            //         Some(v) => {
-            //             v.txs.insert(user_id, new_connection.0);
-            //         }
-            //         None => {
-            //             let mut room = room::WSRoom {
-            //                 txs: HashMap::new(),
-            //             };
-            //             room.txs.insert(user_id, new_connection.0);
-            //             rooms.insert(room_id.clone(), room);
-            //         }
-            //     }
-            // };
 
             let mut peer = peer::Peer {
                 rx: new_connection.1,
-                user_id: user_id.clone(),
+                // Not identified yet
+                user_id: None,
             };
-            let rooms = rooms.clone();
+
+            let message_tx = message_tx.clone();
             // Wait for new messages from this new peer in a different thread
             let _ = tokio::spawn(async move {
                 loop {
                     // Wait for new message
                     let new_message = peer.listen().await;
-                    let rooms = rooms.clone();
-                    let message = WSMessage::new(&user_id, &new_message);
-                    match message {
-                        WSMessage::NewMessage {
-                            user_id: _,
-                            room_id,
-                            message: _,
-                            server_id: _,
-                        } => {
-                            // If peer sent a new message spawn a new thread locking rooms and
-                            // broadcasting the message to all other peers
-                            tokio::spawn(async move {
-                                let mut rooms = rooms.lock().await;
-                                let room = rooms
-                                    .get_mut(&room_id)
-                                    .expect("Failed to fetch room in thread");
-                                room.broadcast(message).await;
-                            });
+                    let message = WSMessage::new(&peer.user_id, &new_message);
+                    message_tx.send(message).await;
+                }
+            });
+            let temp_id = Uuid::new_v4();
+            session.unknown_connected(&temp_id, new_connection.0);
+
+            while let Some(message) = message_rx.recv().await {
+                match message {
+                    WSMessage::NewMessage {
+                        user_id: _,
+                        room_id: _,
+                        message: _,
+                        server_id,
+                    } => {
+                        // If peer sent a new message spawn a new thread locking rooms and
+                        // broadcasting the message to all other peers
+                        let room = user_servers
+                            .get_mut(&server_id)
+                            .expect("Failed to fetch server");
+                        // tokio::spawn(async move {
+                        session.broadcast(message).await;
+                        // });
+                    }
+                    WSMessage::Login { jwt_token } => {
+                        // Get from token
+                        let user_id = Uuid::new_v4();
+                        session.identify_user(temp_id, user_id);
+                        let server_list = servers_by_users
+                            .get(&user_id)
+                            .expect("Server doens't exist");
+                        for server_id in server_list {
+                            match user_servers.get_mut(server_id) {
+                                Some(v) => {
+                                    v.push(user_id);
+                                }
+                                None => {
+                                    user_servers.insert(server_id.clone(), vec![user_id]);
+                                }
+                            }
                         }
-                        WSMessage::Login { user_id: _ } => todo!(),
-                        WSMessage::Logout { user_id: id } => {
-                            let mut rooms = rooms.lock().await;
-                            for (_key, room) in rooms.iter_mut() {
-                                room.txs.remove(&id);
+                    }
+                    WSMessage::Logout { user_id } => match user_id {
+                        Some(user_id) => {
+                            session.connected_users.remove(&user_id);
+                            let mut servers_to_clear: Vec<Uuid> = Vec::new();
+                            for (key, users) in user_servers.iter_mut() {
+                                if let Some(index) =
+                                    users.iter().position(|value| *value == user_id).clone()
+                                {
+                                    users.remove(index);
+                                    if users.len() == 0 {
+                                        servers_to_clear.push(key.clone());
+                                    }
+                                }
+                            }
+                            for id in servers_to_clear {
+                                user_servers.remove(&id);
                             }
                             println!("Peer disconnected");
                             break;
                         }
-                    }
+                        None => {
+                            println!("Warning, logout without userId. Possibly hanging entry in servers map");
+                            break;
+                        }
+                    },
                 }
-            });
+            }
         }
     }
 
