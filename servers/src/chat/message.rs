@@ -16,21 +16,27 @@ pub enum WSMessage {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct NewMessage {
-    user_id: Uuid,
-    room_id: Uuid,
-    message: String,
-    server_id: Uuid,
+    pub user_id: Uuid,
+    pub room_id: Uuid,
+    pub message: String,
+    pub server_id: Uuid,
 }
+
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct LoginMessage {
-    user_id: Uuid,
+    pub user_id: Uuid,
     //jwt_token
 }
+
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct LogoutMessage {
-    user_id: Option<Uuid>,
+    pub user_id: Option<Uuid>,
 }
+
 impl WSMessage {
     pub fn new(message: &Option<Message>) -> Self {
         if let Some(m) = message {
