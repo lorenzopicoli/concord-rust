@@ -6,7 +6,7 @@ export enum WSMessageType {
     Logout = 'logout',
 }
 
-export class BaseMessage {
+export class GenericMessage {
     public type: WSMessageType
     public data: unknown
 
@@ -44,7 +44,7 @@ export class BaseMessage {
     }
 }
 
-export class NewMessage extends BaseMessage {
+export class NewMessage extends GenericMessage {
     public data: {
         userId: string
         roomId: string
@@ -65,7 +65,7 @@ export class NewMessage extends BaseMessage {
     }
 }
 
-export class LoginMessage extends BaseMessage {
+export class LoginMessage extends GenericMessage {
     public data: {
         userId: string
     }
@@ -82,7 +82,7 @@ export class LoginMessage extends BaseMessage {
     }
 }
 
-export class LogoutMessage extends BaseMessage {
+export class LogoutMessage extends GenericMessage {
     public data: {
         userId: string
     }
@@ -100,4 +100,25 @@ export class LogoutMessage extends BaseMessage {
     }
 }
 
-export type WSMessage = NewMessage | LoginMessage | LogoutMessage
+export const parseWSMessage = (
+    rawMessage: Record<string, unknown>
+): GenericMessage => {
+    if (!rawMessage.type) {
+        throw new Error("Can't create ws message without a type")
+    }
+
+    // Assume type is of a message type, try to match it to a type defined
+    const type = rawMessage.type as WSMessageType
+    if (Object.values(WSMessageType).indexOf(type as WSMessageType) === -1) {
+        throw new Error('Invalid message type')
+    }
+    switch (type) {
+        //TODO: Remove any
+        case WSMessageType.NewMessage:
+            return new NewMessage(rawMessage.data as any)
+        case WSMessageType.Login:
+            return new LoginMessage(rawMessage.data as any)
+        case WSMessageType.Logout:
+            return new LogoutMessage(rawMessage.data as any)
+    }
+}

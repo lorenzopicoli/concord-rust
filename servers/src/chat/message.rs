@@ -17,7 +17,8 @@ pub enum WSMessage {
         server_id: Uuid,
     },
     Login {
-        jwt_token: String,
+        user_id: Uuid,
+        //jwt_token
     },
     Logout {
         user_id: Option<Uuid>,
@@ -27,6 +28,10 @@ pub enum WSMessage {
 impl WSMessage {
     pub fn new(user_id: &Option<Uuid>, message: &Option<Message>) -> Self {
         let user_id = user_id.clone();
+
+        if let Some(m) = message {
+            println!("New message recieved:  {}", m);
+        }
         let message = match message {
             None => return WSMessage::Logout { user_id },
             Some(t) => t,

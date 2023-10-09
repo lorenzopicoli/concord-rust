@@ -1,20 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
-import { NewMessage, WSMessage } from '../../models/websocket'
+import { useParams } from 'react-router-dom'
+import {
+    GenericMessage,
+    LoginMessage,
+    NewMessage,
+    parseWSMessage,
+} from '../../models/websocket'
 import MessageBubble from './MessageBubble'
 import SendMessage from './SendMessage'
 
 const WS_URL = 'ws://127.0.0.1:9001'
 const ChatContainer = () => {
     const socket = useRef<WebSocket | null>(null)
-    const [messages, setMessages] = useState<WSMessage[]>([])
+    const [messages, setMessages] = useState<GenericMessage[]>([])
+    const { userId, roomId, serverId } = useParams()
 
     const handleSendMessage = async (message: string) => {
         if (socket.current?.readyState === WebSocket.OPEN) {
             const formattedMessage = new NewMessage({
-                userId: '6ec4844c-9ccc-4fe3-9ad6-86377ba3448b',
-                roomId: '0e67e2e4-cb84-46a8-a209-362a7d50f620',
+                userId: userId ?? '',
+                roomId: roomId ?? '',
                 message,
-                serverId: '0e67e2e4-cb84-46a8-a209-362a7d50f620',
+                serverId: serverId ?? '',
             })
 
             socket.current.send(JSON.stringify(formattedMessage))
@@ -28,7 +35,17 @@ const ChatContainer = () => {
         socket.current = new WebSocket(WS_URL)
 
         socket.current.onmessage = (event) => {
-            setMessages((m) => [...m, JSON.parse(event.data)])
+            const message = parseWSMessage(JSON.parse(event.data))
+            console.log('New message', message)
+            setMessages((m) => [...m, message])
+        }
+
+        const loginMessage = new LoginMessage({
+            userId: userId ?? '',
+        })
+
+        socket.current.onopen = () => {
+            socket.current?.send(JSON.stringify(loginMessage))
         }
 
         // Clean up the WebSocket connection on component unmount
