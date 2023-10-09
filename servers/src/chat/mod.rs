@@ -33,13 +33,7 @@ impl WSServer {
         WSServer { listener: server }
     }
 
-    pub async fn start(&self) {
-        let mut user_servers: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
-        let mut session = Session {
-            connected_users: HashMap::new(),
-            unidentified_users: HashMap::new(),
-        };
-
+    fn mock_data(&self) -> HashMap<Uuid, Vec<Uuid>> {
         let mut servers_by_users: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
         // User 1
         servers_by_users.insert(
@@ -58,6 +52,18 @@ impl WSServer {
             Uuid::new_v4(),
             vec![Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4()],
         );
+
+        servers_by_users
+    }
+
+    pub async fn start(&self) {
+        let mut user_servers: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+        let mut session = Session {
+            connected_users: HashMap::new(),
+            unidentified_users: HashMap::new(),
+        };
+
+        let servers_by_users = self.mock_data();
 
         let (message_tx, mut message_rx) = mpsc::channel(32);
         loop {
@@ -94,16 +100,9 @@ impl WSServer {
                         user_id: _,
                         room_id: _,
                         message: _,
-                        server_id,
+                        server_id: _,
                     } => {
-                        // If peer sent a new message spawn a new thread locking rooms and
-                        // broadcasting the message to all other peers
-                        let room = user_servers
-                            .get_mut(&server_id)
-                            .expect("Failed to fetch server");
-                        // tokio::spawn(async move {
                         session.broadcast(message).await;
-                        // });
                     }
                     WSMessage::Login { jwt_token } => {
                         // Get from token
