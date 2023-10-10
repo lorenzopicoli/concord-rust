@@ -93,6 +93,7 @@ export class LogoutMessage extends GenericMessage {
     }
 
     public toChatMessage(): ChatMessage {
+        console.log('ahhhh', this)
         return {
             message: `User logged out ${this.data.userId}`,
             username: this.data.userId,

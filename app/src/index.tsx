@@ -5,15 +5,30 @@ import App from './App'
 import reportWebVitals from './reportWebVitals'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import ChatContainer from './components/Chat/Container'
+import Login from './components/Login'
 
 const router = createBrowserRouter([
     {
         path: '/',
+        element: <Login />,
+        errorElement: <div>Not found</div>,
+    },
+
+    {
+        path: '/users/:userId',
         element: <App />,
         errorElement: <div>Not found</div>,
         children: [
             {
-                path: 'users/:userId/servers/:serverId/rooms/:roomId',
+                path: '',
+                element: <div>Select Server</div>,
+            },
+            {
+                path: 'servers/:serverId',
+                element: <div>Select room</div>,
+            },
+            {
+                path: 'servers/:serverId/rooms/:roomId',
                 element: <ChatContainer />,
             },
         ],

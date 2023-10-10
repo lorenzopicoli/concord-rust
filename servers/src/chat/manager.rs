@@ -68,9 +68,9 @@ impl WSManager {
         let servers_by_users = mock_data();
         println!("Login received {:#?}", message.user_id);
         // Get from token
-        self.identify_user(connection_id, message.user_id);
-        // peer.user_id = Some(user_id);
         println!("Identifying user {} as {}", connection_id, message.user_id);
+        self.identify_user(connection_id, message.user_id);
+
         let server_list = servers_by_users
             .get(&message.user_id)
             .expect("Server doens't exist");
@@ -94,13 +94,15 @@ impl WSManager {
     pub async fn handle_logout_message(
         &mut self,
         connection_id: &uuid::Uuid,
-        message: LogoutMessage,
+        // Shouldn't mut
+        mut message: LogoutMessage,
     ) {
         let dropped_connection = self.connected_users.remove(&connection_id);
         // If connection was known and user was identified, drop from
         // connection list
         if let Some(dropped_connection) = dropped_connection {
             if let Some(user_id) = dropped_connection.0 {
+                message.user_id = Some(user_id.clone());
                 let mut servers_to_clear: Vec<Uuid> = Vec::new();
                 for (key, users) in self.user_servers.iter_mut() {
                     users.remove(&user_id);
@@ -117,12 +119,13 @@ impl WSManager {
         self.broadcast(WSMessage::Logout(message)).await;
     }
 
-    pub async fn broadcast(&mut self, message: WSMessage) {
+    async fn broadcast(&mut self, message: WSMessage) {
         for (_k, v) in self.connected_users.iter_mut() {
             // Don't broadcast to unindentified connections
             if v.0.is_none() {
                 continue;
             }
+            println!("Sending {:#?} to {:#?}", message, v.0);
             v.1.send(Message::Text(message.serialize().clone()))
                 .await
                 .expect("Failed to send message");

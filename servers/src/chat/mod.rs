@@ -108,7 +108,7 @@ async fn listen_peer(
                 break;
             }
         };
-        println!("New message received from peer");
+        println!("New message received from peer {:#?}", message);
 
         if let Err(e) = channel_tx
             .send(MpscCommand::WSMessage(connection_id, message.clone()))
@@ -120,9 +120,21 @@ async fn listen_peer(
             );
             continue;
         }
-        // Is none then we have disconnected
+
+        // Now we check if we have disconnected by checking if message is None or if
+        // message is of type Close. Ideally I think this should be told by the manager
+        // So we'd want to setup a one shot channel here to communicate back to this thread
+        // that it should break out of the loop. Doing so would allow us to terminate
+        // the connection if the user isn't authenticated anymore for example
         if message.is_none() {
             break;
+        }
+
+        if let Some(message) = message {
+            match message {
+                Message::Close(_) => break,
+                _ => continue,
+            }
         }
     }
 }
