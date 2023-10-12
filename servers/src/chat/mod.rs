@@ -15,20 +15,30 @@ pub type WSReadStream = SplitStream<WebSocketStream<TcpStream>>;
 mod manager;
 mod message;
 
+/// Commands that can be send from the threads that listen for new peer messages
+/// to the main thread which process and broadcasts them
 #[derive(Debug)]
 enum MpscCommand {
+    /// An UUID which will be used to identify this new connection (not the user id)
+    /// and the stream to be used to broadcast new messages
     NewConnection(Uuid, WSWriteStream),
+    /// When a new message is received. UUID is the connection UUID
     WSMessage(Uuid, Option<Message>),
 }
 
+/// Start the websocket chat on the TcpListener. This will keep the thread waiting so make sure to
+/// call it in a new thread
 pub async fn start(listener: TcpListener) {
     let (message_tx, message_rx) = mpsc::channel::<MpscCommand>(32);
     println!("Starting server");
     println!("Waiting for new channel message");
+    // Starts a new thread to wait for new peers
     tokio::spawn(poll_new_peers(listener, message_tx));
+    // In the current thread wait for Mpsc messages from the previous thread
     manage_ws_messages(message_rx).await;
 }
-
+/// Responsible for listening on the mpsc channel and properly dispatching actions to the correct
+/// modules
 async fn manage_ws_messages(mut channel_rx: mpsc::Receiver<MpscCommand>) {
     let mut session = WSManager::new();
 
@@ -58,6 +68,8 @@ async fn manage_ws_messages(mut channel_rx: mpsc::Receiver<MpscCommand>) {
     }
 }
 
+/// Constantly listens for new peers and dispatch mpsc messages when a new connection is made
+/// Also spawns a thread for each new connection (check listen_peer)
 async fn poll_new_peers(listener: TcpListener, channel_tx: mpsc::Sender<MpscCommand>) {
     loop {
         let (stream, _addr) = match listener.accept().await {
@@ -94,6 +106,8 @@ async fn poll_new_peers(listener: TcpListener, channel_tx: mpsc::Sender<MpscComm
     }
 }
 
+/// Constantly listens for new messages from an established connection and dispatch them to the
+/// mpsc channel
 async fn listen_peer(
     connection_id: Uuid,
     mut ws_rx: WSReadStream,

@@ -8,6 +8,8 @@ use super::{
     WSWriteStream,
 };
 use futures::SinkExt;
+
+/// To be deleted when API is available
 pub fn mock_data() -> HashMap<Uuid, Vec<Uuid>> {
     let mut servers_by_users: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
     let server1 = Uuid::parse_str("7f6dcb56-2c71-4921-96c1-92d9a891f626").unwrap();
@@ -30,6 +32,8 @@ pub fn mock_data() -> HashMap<Uuid, Vec<Uuid>> {
     servers_by_users
 }
 
+/// Manages the chat websocket server. Keeps track of who's connected and makes sure that messages
+/// are properly broadcasted to all peers
 #[derive(Debug)]
 pub struct WSManager {
     /// Map keys are connection ids, map to (user_id, tx)
@@ -47,19 +51,26 @@ impl WSManager {
         };
         session
     }
+    /// Required step for a user to be able to send and receive messages. This is called once the
+    /// user sends a Login message and we validate that the JWT token is valid
     pub fn identify_user(&mut self, connection_id: &uuid::Uuid, user_id: uuid::Uuid) {
         self.connected_users.get_mut(&connection_id).unwrap().0 = Some(user_id);
     }
+    /// Keeps track that an websocket connection was made, but the user hasn't been identified yet
+    /// In the future this can probably be dropped if we skip the indentification phase by
+    /// requiring a JWT token from the get go
     pub fn unknown_connected(&mut self, connection_id: &uuid::Uuid, tx: WSWriteStream) {
         self.connected_users
             .insert(connection_id.clone(), (None, tx));
     }
-
+    /// Handles a message received of type "NewMessage". Called when a user is attempting to send a
+    /// message in the chat
     pub async fn handle_new_message(&mut self, message: NewMessage) {
         println!("NewMessage received {:#?}", message);
         self.broadcast(WSMessage::NewMessage(message)).await;
     }
 
+    /// Handles the user identification step through a "Login" message.
     pub async fn handle_login_message(
         &mut self,
         connection_id: &uuid::Uuid,
@@ -91,10 +102,13 @@ impl WSManager {
         println!("User servers {:#?}", self.user_servers);
     }
 
+    /// Handles a Logout message that can be either initiated by the user or can be done if the
+    /// server detects that the channel was closed
     pub async fn handle_logout_message(
         &mut self,
         connection_id: &uuid::Uuid,
-        // Shouldn't mut
+        // TODO: remove this mutation by making sure that Message can be clonned and so we can
+        // create a new instance and set the user_id in it more easily
         mut message: LogoutMessage,
     ) {
         let dropped_connection = self.connected_users.remove(&connection_id);
@@ -102,6 +116,9 @@ impl WSManager {
         // connection list
         if let Some(dropped_connection) = dropped_connection {
             if let Some(user_id) = dropped_connection.0 {
+                // It's important to make sure that the message contains the identification of the
+                // user that is disconnecting in case the frontend chooses to display that this
+                // user has left the room or disconnected
                 message.user_id = Some(user_id.clone());
                 let mut servers_to_clear: Vec<Uuid> = Vec::new();
                 for (key, users) in self.user_servers.iter_mut() {
@@ -119,6 +136,10 @@ impl WSManager {
         self.broadcast(WSMessage::Logout(message)).await;
     }
 
+    /// Broadcasts any message to all identified users
+    /// TODO: could this be a performance issue? When calling this I don't start a new thread which
+    /// means we have to wait to broadcast to all members one by one... I don't think it's a big
+    /// issue any time soon
     async fn broadcast(&mut self, message: WSMessage) {
         for (_k, v) in self.connected_users.iter_mut() {
             // Don't broadcast to unindentified connections
