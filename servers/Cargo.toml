@@ -1,16 +1,40 @@
-[package]
-name = "concord"
-version = "0.1.0"
-edition = "2021"
+# [package]
+# name = "concord"
+# version = "0.1.0"
+# edition = "2021"
+#
+# # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+#
+# [dependencies]
+# tokio = { version = "1", features = ["full"] }
+# futures = "0.3"
+# tokio-tungstenite = "*"
+# serde = { version = "1.0.188", features = ["derive"] }
+# serde_json = "1.0.107"
+# serde_repr = "0.1"
+# uuid = { version = "1.4.1", features = ["v4", "macro-diagnostics", "serde"] }
+# warp = "0.3.6"
+# axum = "0.6.20"
+# async-graphql = "6.0.7"
+# async-graphql-axum = "6.0.7"
+
+# [package]
+# name = "concord"
+# authors = ["Lorenzo Modolo<lorenzopicoli@me.com>"]
+# version = "0.1.0"
+# edition = "2021"
+# publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace]
+members = [".", "api", "service", "entity", "migration", "chat"]
+resolver = "2"
 
-[dependencies]
+[workspace.dependencies]
+# api = { path = "api" }
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
-tokio-tungstenite = "*"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
 serde_repr = "0.1"
 uuid = { version = "1.4.1", features = ["v4", "macro-diagnostics", "serde"] }
-warp = "0.3.6"

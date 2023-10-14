@@ -6,8 +6,8 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::{accept_async, tungstenite::Message, WebSocketStream};
 use uuid::Uuid;
 
-use self::manager::WSManager;
-use self::message::WSMessage;
+use manager::WSManager;
+use message::WSMessage;
 
 pub type WSWriteStream = SplitSink<WebSocketStream<TcpStream>, Message>;
 pub type WSReadStream = SplitStream<WebSocketStream<TcpStream>>;

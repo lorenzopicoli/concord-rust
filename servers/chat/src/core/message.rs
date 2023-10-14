@@ -37,7 +37,9 @@ pub struct LoginMessage {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct LogoutMessage {}
+pub struct LogoutMessage {
+    pub user_id: Option<Uuid>,
+}
 
 impl WSMessage {
     pub fn new(message: &Option<Message>) -> Self {
@@ -45,26 +47,24 @@ impl WSMessage {
             println!("New message recieved:  {}", m);
         }
         let message = match message {
-            None => return WSMessage::Logout(LogoutMessage {}),
+            None => return WSMessage::Logout(LogoutMessage { user_id: None }),
             Some(t) => t,
         };
 
         return match message {
             Message::Text(t) => {
-                // TODO: properly handle this
                 let message: WSMessage = serde_json::from_str(t).expect("Failed to parse message");
                 message
             }
             Message::Binary(_) => todo!(),
             Message::Ping(_) => todo!(),
             Message::Pong(_) => todo!(),
-            Message::Close(_) => WSMessage::Logout(LogoutMessage {}),
+            Message::Close(_) => WSMessage::Logout(LogoutMessage { user_id: None }),
             Message::Frame(_) => todo!(),
         };
     }
 
     pub fn serialize(&self) -> String {
-        // TODO: properly handle this
         serde_json::to_string(&self).expect("Failed to serialize message")
     }
 }
