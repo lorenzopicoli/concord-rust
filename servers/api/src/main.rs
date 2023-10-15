@@ -1,30 +1,26 @@
 use std::net::SocketAddr;
 
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
-use async_graphql::{EmptyMutation, EmptySubscription, Object, Schema};
 use async_graphql_axum::*;
 use axum::{
+    extract::State,
     response::{Html, IntoResponse},
     routing::{get, post},
-    Extension, Router,
+    Router,
 };
-struct Query;
-
-type ServiceSchema = Schema<Query, EmptyMutation, EmptySubscription>;
-#[Object]
-impl Query {
-    async fn howdy(&self) -> &'static str {
-        "partner"
-    }
-}
+use graphql::schema::ApiSchema;
+// struct Query;
+mod db;
+mod graphql;
 
 #[tokio::main]
 async fn main() {
-    let schema = Schema::build(Query, EmptyMutation, EmptySubscription).finish();
+    let schema = graphql::schema::build_schema().await;
     let app = Router::new()
         .route("/graphql", post(graphql_handler))
         .route("/playground", get(graphql_playground))
-        .layer(Extension(schema));
+        .with_state(schema);
+    // .layer(Extension(schema));
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
@@ -37,7 +33,7 @@ async fn graphql_playground() -> impl IntoResponse {
     ))
 }
 
-async fn graphql_handler(schema: Extension<ServiceSchema>, req: GraphQLRequest) -> GraphQLResponse {
+async fn graphql_handler(schema: State<ApiSchema>, req: GraphQLRequest) -> GraphQLResponse {
     let response = schema.execute(req.into_inner()).await;
 
     response.into()

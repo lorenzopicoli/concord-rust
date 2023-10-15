@@ -31,10 +31,14 @@ members = [".", "api", "service", "entity", "migration", "chat"]
 resolver = "2"
 
 [workspace.dependencies]
-# api = { path = "api" }
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
 serde_repr = "0.1"
 uuid = { version = "1.4.1", features = ["v4", "macro-diagnostics", "serde"] }
+async-graphql-axum = "6.0.7"
+async-graphql = { version = "6.0.7", features = ["uuid", "chrono"] }
+axum = "0.6.20"
+sea-orm = { version = "0.12.3", features = ["debug-print", "with-uuid", "with-chrono", "sqlx-postgres"] }
+chrono = "0.4.31"
